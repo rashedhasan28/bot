@@ -1,1 +1,598 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RSI Divergence Bot</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background-color: #0a0a0a;
+      color: #ffffff;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    .header {
+      margin-bottom: 2rem;
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #10b981, #059669);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+
+    .header p {
+      color: #9ca3af;
+      font-size: 1.1rem;
+    }
+
+    .grid {
+      display: grid;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .grid-2 {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    @media (max-width: 1024px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background-color: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+
+    .card h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      color: #ffffff;
+    }
+
+    .status-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .badge {
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .badge-running {
+      background-color: #059669;
+      color: #ffffff;
+    }
+
+    .badge-stopped {
+      background-color: #dc2626;
+      color: #ffffff;
+    }
+
+    .status-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .status-label {
+      color: #9ca3af;
+    }
+
+    .status-value {
+      font-weight: 500;
+    }
+
+    .status-value.signal {
+      color: #10b981;
+    }
+
+    .status-value.trade {
+      color: #3b82f6;
+    }
+
+    .separator {
+      height: 1px;
+      background-color: #374151;
+      margin: 1rem 0;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.5rem;
+      border: none;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.875rem;
+    }
+
+    .btn-primary {
+      background-color: #059669;
+      color: #ffffff;
+    }
+
+    .btn-primary:hover {
+      background-color: #047857;
+    }
+
+    .btn-primary:disabled {
+      background-color: #374151;
+      cursor: not-allowed;
+    }
+
+    .btn-destructive {
+      background-color: #dc2626;
+      color: #ffffff;
+    }
+
+    .btn-destructive:hover {
+      background-color: #b91c1c;
+    }
+
+    .btn-destructive:disabled {
+      background-color: #374151;
+      cursor: not-allowed;
+    }
+
+    .scroll-area {
+      height: 20rem;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+    }
+
+    .scroll-area::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .scroll-area::-webkit-scrollbar-track {
+      background: #374151;
+      border-radius: 3px;
+    }
+
+    .scroll-area::-webkit-scrollbar-thumb {
+      background: #6b7280;
+      border-radius: 3px;
+    }
+
+    .actions-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .action-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      background-color: rgba(55, 65, 81, 0.5);
+      border-radius: 0.5rem;
+      transition: background-color 0.2s;
+    }
+
+    .action-item:hover {
+      background-color: #374151;
+    }
+
+    .action-time {
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+      color: #fdfeff;
+      min-width: 4rem;
+      margin-top: 0.125rem;
+    }
+
+    .action-text {
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+    
+    /* Color-coded log messages */
+    .action-text.signal {
+      color: #10b981; /* Green for signals */
+    }
+    .action-text.trade {
+      color: #3b82f6; /* Blue for trade executions */
+    }
+    .action-text.condition {
+      color: #f59e0b; /* Amber for RSI conditions */
+    }
+    .action-text.filter {
+      color: #8b5cf6; /* Purple for filter messages */
+    }
+    .action-text.pause {
+      color: #f97316; /* Orange for pause events */
+    }
+    .action-text.error {
+      color: #ef4444; /* Red for errors */
+    }
+    .action-text.system {
+      color: #9ca3af; /* Gray for system messages */
+    }
+
+    .settings-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+
+    @media (max-width: 1024px) {
+      .settings-form {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .settings-section h3 {
+      font-size: 1.125rem;
+      font-weight: 500;
+      margin-bottom: 1.5rem;
+      color: #ffffff;
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .form-label {
+      font-size: 0.875rem;
+      color: #d1d5db;
+      font-weight: 500;
+    }
+
+    .form-input {
+      padding: 0.5rem 0.75rem;
+      background-color: #374151;
+      border: 1px solid #4b5563;
+      border-radius: 0.375rem;
+      color: #ffffff;
+      font-size: 0.875rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #059669;
+      box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .checkbox {
+      width: 1rem;
+      height: 1rem;
+      accent-color: #059669;
+    }
+
+    .checkbox-label {
+      font-size: 0.875rem;
+      color: #d1d5db;
+      cursor: pointer;
+    }
+
+    .filters-container {
+      max-height: 15rem;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+    }
+
+    .asset-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem;
+      background-color: rgba(55, 65, 81, 0.5);
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .asset-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .asset-name {
+      font-weight: 500;
+      color: #ffffff;
+    }
+
+    .risk-input-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .risk-input {
+      width: 5rem;
+      padding: 0.25rem 0.5rem;
+      background-color: #374151;
+      border: 1px solid #4b5563;
+      border-radius: 0.25rem;
+      color: #ffffff;
+      font-size: 0.75rem;
+    }
+
+    .submit-section {
+      padding-top: 1.5rem;
+      border-top: 1px solid #374151;
+      margin-top: 1.5rem;
+    }
+
+    .balance-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 1rem;
+      background-color: rgba(55, 65, 81, 0.3);
+      border-radius: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .balance-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.875rem;
+    }
+
+    .balance-label {
+      color: #9ca3af;
+    }
+
+    .balance-value {
+      font-weight: 500;
+    }
+
+    .active-trades {
+      color: #10b981;
+      background-color: rgba(16, 185, 129, 0.1);
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      border: 1px solid #10b981;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>RSI Divergence Bot</h1>
+      <p>Advanced trading bot with RSI divergence detection</p>
+    </div>
+
+    <div class="grid grid-2">
+      <!-- Live Bot Status -->
+      <div class="card">
+        <div class="status-header">
+          <h2>Live Bot Status</h2>
+          <span class="badge {% if running %}badge-running{% else %}badge-stopped{% endif %}">
+            {% if running %}Running{% else %}Stopped{% endif %}
+          </span>
+        </div>
+
+        <div class="status-grid">
+          <div class="status-item">
+            <span class="status-label">Last Scanned:</span>
+            <span class="status-value">{{ last_scan_asset }} on {{ last_scan_tf }}</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Last Signal:</span>
+            <span class="status-value signal">{{ last_signal }}</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Last Trade:</span>
+            <span class="status-value trade">{{ last_trade }}</span>
+          </div>
+        </div>
+
+        <div class="separator"></div>
+
+        <div class="status-grid">
+          <div class="status-item">
+            <span class="status-label">USDT Balance:</span>
+            <span class="status-value">${{ usdt_balance }}</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">AUD Balance:</span>
+            <span class="status-value">${{ aud_balance }}</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Active Trades:</span>
+            <span class="active-trades">{{ active_trades }}</span>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <form action='/start' method='post' style="flex:1;">
+            <button class="btn btn-primary" type="submit" {% if running %}disabled{% endif %}>Start Bot</button>
+          </form>
+          <form action='/stop' method='post' style="flex:1;">
+            <button class="btn btn-destructive" type="submit" {% if not running %}disabled{% endif %}>Stop Bot</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Recent Actions with color coding -->
+      <div class="card">
+        <h2>Recent Actions</h2>
+        <div class="scroll-area">
+          <div class="actions-list">
+            {% for item in log %}
+              <div class="action-item">
+                {% set parts = item.split('] ', 1) %}
+                {% if parts|length == 2 %}
+                  <div class="action-time">{{ parts[0].replace('[', '') }}</div>
+                  {% set msg = parts[1] %}
+                  {% if "Bullish" in msg or "Bearish" in msg or "divergence detected" in msg or "signal" in msg %}
+                    <div class="action-text signal">{{ msg }}</div>
+                  {% elif "BUY" in msg or "SELL" in msg or "TRADE" in msg or "order" in msg or "Order" in msg %}
+                    <div class="action-text trade">{{ msg }}</div>
+                  {% elif "condition" in msg or "RSI" in msg or "rsi" in msg %}
+                    <div class="action-text condition">{{ msg }}</div>
+                  {% elif "filter" in msg or "Filter" in msg or "MinFlex" in msg or "mandatory" in msg or "flexible" in msg %}
+                    <div class="action-text filter">{{ msg }}</div>
+                  {% elif "pause" in msg or "Pause" in msg or "stopped" in msg or "started" in msg %}
+                    <div class="action-text pause">{{ msg }}</div>
+                  {% elif "Error" in msg or "error" in msg or "Failed" in msg or "Invalid" in msg %}
+                    <div class="action-text error">{{ msg }}</div>
+                  {% else %}
+                    <div class="action-text system">{{ msg }}</div>
+                  {% endif %}
+                {% else %}
+                  <div class="action-time">{{ time.strftime('%H:%M:%S') }}</div>
+                  <div class="action-text system">{{ item }}</div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bot Settings -->
+    <div class="card">
+      <h2>Bot Settings</h2>
+      <form class="settings-form" action='/update' method='post'>
+        <!-- General Settings -->
+        <div class="settings-section">
+          <h3>General Settings</h3>
+          
+          <div class="settings-grid">
+            <div class="form-group">
+              <label class="form-label" for="risk">Risk (%)</label>
+              <input class="form-input" type="number" name="risk" id="risk" value="{{ risk }}" step="0.1">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="minflex">MinFlex</label>
+              <input class="form-input" type="number" name="minflex" id="minflex" value="{{ minflex }}">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="timeframe">Timeframes</label>
+            <input class="form-input" type="text" name="timeframe" id="timeframe" value="{{ timeframe }}" placeholder="e.g., 1h,4h,1d">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="lookback">Divergence Lookback</label>
+            <input class="form-input" type="number" name="lookback" id="lookback" value="{{ divergence_lookback }}">
+          </div>
+
+          <div class="checkbox-group">
+            <input class="checkbox" type="checkbox" id="pause-trades" name="pause_new_trades" {% if pause_new_trades %}checked{% endif %}>
+            <label class="checkbox-label" for="pause-trades">Pause New Trades</label>
+          </div>
+
+          <div class="separator"></div>
+
+          <h3>Filter Toggles</h3>
+          <div class="filters-container">
+            {% set filters = [
+              'News Auto-Pause', 'RSI Overbought/Oversold Zones', 'Divergence Strength', 'Timeframe ≥ 30m',
+              'RSI Slope', 'RSI Rebound', 'Body Strength', 'Volume Confirmation',
+              'MA Proximity', 'Volatility Spike', 'Wick Ratio', 'Candle Color Sequence',
+              'Session Filter', 'Price Structure', 'Custom Pattern Match'
+            ] %}
+            {% for idx in range(filters|length) %}
+              <div class="checkbox-group">
+                <input class="checkbox" type="checkbox" id="filter-{{ idx }}" name="filters" value="{{ idx }}" {% if idx in enabled_filters %}checked{% endif %}>
+                <label class="checkbox-label" for="filter-{{ idx }}">{{ filters[idx] }}</label>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Assets -->
+        <div class="settings-section">
+          <h3>Assets</h3>
+          
+          {% for asset, active in active_assets.items() %}
+            <div class="asset-item">
+              <div class="asset-info">
+                <input class="checkbox" type="checkbox" id="{{ asset }}" name="assets" value="{{ asset }}" {% if active %}checked{% endif %}>
+                <label class="asset-name" for="{{ asset }}">{{ asset }}</label>
+              </div>
+              <div class="risk-input-group">
+                <label class="form-label">Risk:</label>
+                <input class="risk-input" type="number" name="risk_{{ asset }}" value="{{ asset_risks[asset] }}" step="0.1">
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </form>
+
+      <div class="submit-section">
+        <button type="submit" class="btn btn-primary">Update Settings</button>
+      </div>
+
+      <div class="balance-info">
+        <div class="balance-item">
+          <span class="balance-label">Status:</span>
+          <span class="balance-value">{% if running %}Running{% else %}Stopped{% endif %}</span>
+        </div>
+        <div class="balance-item">
+          <span class="balance-label">Pause New Trades:</span>
+          <span class="balance-value">{% if pause_new_trades %}Yes{% else %}No{% endif %}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
